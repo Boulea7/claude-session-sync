@@ -1,6 +1,44 @@
 # Troubleshooting / 故障排除
 
-## Common Issues / 常见问题
+## Windows 常见问题
+
+### W1. PowerShell 执行策略错误
+
+**症状:** 运行 `install.ps1` 时提示"无法加载文件...因为在此系统上禁止运行脚本"
+
+**解决方案:**
+```powershell
+# 以管理员身份运行 PowerShell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+### W2. Git Bash 未找到
+
+**症状:** Claude Code 无法执行命令，提示找不到 bash
+
+**解决方案:**
+1. 确认已安装 [Git for Windows](https://git-scm.com/downloads/win)
+2. 在 `settings.json` 中手动指定路径：
+```json
+{
+  "env": {
+    "CLAUDE_CODE_GIT_BASH_PATH": "C:\\Program Files\\Git\\bin\\bash.exe"
+  }
+}
+```
+
+### W3. Hook 命令执行失败
+
+**症状:** Windows 上 hook 无法正常工作
+
+**解决方案:**
+- Claude Code 在 Windows 上内部使用 Git Bash 执行命令
+- 确保 Git for Windows 正确安装
+- 如问题持续，建议使用 WSL2
+
+---
+
+## 通用问题
 
 ### 1. Hook Not Triggering / Hook 未触发
 

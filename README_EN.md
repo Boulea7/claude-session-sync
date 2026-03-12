@@ -10,27 +10,49 @@
 
 [简体中文](./README.md) | English
 
-[Features](#-features) •
-[Installation](#-installation) •
-[Usage](#-usage) •
-[Related Projects](#-related-projects)
-
 </div>
 
 ---
 
 ## 🤔 The Problem
 
-When using Claude Code with multiple AI models (Codex, Gemini), SESSION_IDs are often forgotten between calls, causing:
+When collaborating with multiple AI models (Codex, Gemini) in Claude Code, SESSION_IDs are often forgotten:
 
 - ❌ Lost conversation context
 - ❌ Repeated explanations
-- ❌ Inefficient collaboration
 - ❌ Session confusion across tasks
 
 ## 💡 The Solution
 
-**claude-session-sync** automatically injects session state before each MCP call using PreToolUse hooks, and auto-creates session files when needed.
+Use **PreToolUse Hook** to automatically inject session state before each MCP call.
+
+---
+
+## 📦 Installation
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/Boulea7/claude-session-sync.git
+cd claude-session-sync
+bash hook/install.sh
+```
+
+> **Dependency**: Requires [jq](https://stedolan.github.io/jq/) (`brew install jq` or `apt install jq`)
+
+### Windows
+
+```powershell
+git clone https://github.com/Boulea7/claude-session-sync.git
+cd claude-session-sync
+.\hook\install.ps1
+```
+
+> **Dependency**: Requires [Git for Windows](https://git-scm.com/downloads/win) (Claude Code uses Git Bash internally)
+
+### After Installation
+
+Restart Claude Code to apply changes. **No additional configuration needed.**
 
 ---
 
@@ -38,74 +60,36 @@ When using Claude Code with multiple AI models (Codex, Gemini), SESSION_IDs are 
 
 | Feature | Description |
 |---------|-------------|
-| 🔄 **Auto Injection** | Automatically inject session state before Codex/Gemini calls |
+| 🔄 **Auto Injection** | Inject session state before Codex/Gemini calls |
 | 📁 **Auto Creation** | Auto-creates `.claude/sessions.json` on first call |
-| 🛠️ **One-Click Setup** | Run the installer and you're done |
-| 🎯 **Selective Trigger** | Only triggers for Codex and Gemini MCP tools |
-| 📝 **Skill Alternative** | Manual skill version for explicit control |
-
----
-
-## 📦 Installation
-
-### Prerequisites
-
-- [Claude Code](https://claude.ai/code) installed
-- [jq](https://stedolan.github.io/jq/) for JSON processing
-
-```bash
-# Install jq (if not installed)
-# macOS
-brew install jq
-
-# Ubuntu/Debian
-sudo apt install jq
-```
-
-### Quick Install
-
-```bash
-# Clone the repository
-git clone https://github.com/Boulea7/claude-session-sync.git
-cd claude-session-sync
-
-# Run the installer
-bash hook/install.sh
-```
-
-### What the Installer Does
-
-1. ✅ Backs up your existing `~/.claude/settings.json`
-2. ✅ Merges the PreToolUse hook configuration
-3. ✅ Creates `~/.claude/sessions.json` template
+| 🖥️ **Cross-platform** | Supports macOS, Linux, Windows |
+| 🎯 **Precise Trigger** | Only triggers for Codex/Gemini MCP |
 
 ---
 
 ## 🚀 Usage
 
-### Zero Configuration
+### Workflow
 
-**No manual setup required!** The hook automatically creates `.claude/sessions.json` when needed.
+```
+Call Codex/Gemini
+       ↓
+Hook auto-creates/reads .claude/sessions.json
+       ↓
+Session state injected into context
+       ↓
+Claude calls MCP and updates SESSION_ID
+```
 
-### Fully Automatic Workflow
-
-The hook automatically handles everything:
-
-1. **Before MCP call** → Auto-creates `.claude/sessions.json` if missing
-2. **Injects context** → Claude sees active session IDs
-3. **After MCP call** → Claude updates the SESSION_ID
-
-### Session File Format
+### Session File Example
 
 ```json
 {
   "_schema_version": "1.0",
   "tasks": {
     "feature-auth": {
-      "description": "Implementing authentication",
       "codex_session_id": "abc-123-def-456",
-      "gemini_session_id": "xyz-789-uvw",
-      "updated_at": "2026-03-12T10:00:00Z"
+      "gemini_session_id": "xyz-789-uvw"
     }
   }
 }
@@ -115,78 +99,64 @@ The hook automatically handles everything:
 
 ## ⚙️ Configuration
 
+### Config File Location
+
+| Platform | Path |
+|----------|------|
+| macOS/Linux | `~/.claude/settings.json` |
+| Windows | `%USERPROFILE%\.claude\settings.json` |
+
 ### Hook Configuration
 
-The hook is added to `~/.claude/settings.json`:
+The installer automatically adds:
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "mcp__codexmcp__codex|mcp__gemini__gemini",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -f .claude/sessions.json ] || (mkdir -p .claude && echo '{...}' > .claude/sessions.json); cat .claude/sessions.json",
-            "timeout": 3000
-          }
-        ]
-      }
-    ]
+    "PreToolUse": [{
+      "matcher": "mcp__codexmcp__codex|mcp__gemini__gemini",
+      "hooks": [{
+        "type": "command",
+        "command": "[ -f .claude/sessions.json ] || (mkdir -p .claude && echo '{...}' > .claude/sessions.json); cat .claude/sessions.json",
+        "timeout": 3000
+      }]
+    }]
   }
 }
 ```
 
-> The hook auto-creates the sessions file if it doesn't exist.
+### Add Other MCP Tools
 
-### Customization
-
-#### Add More MCP Tools
-
-Update the matcher pattern:
+Modify the `matcher` field:
 
 ```json
-"matcher": "mcp__codexmcp__codex|mcp__gemini__gemini|mcp__your_tool__tool"
+"matcher": "mcp__codexmcp__codex|mcp__gemini__gemini|mcp__other__tool"
 ```
-
-#### Change Session File Location
-
-Modify the command path in the hook.
 
 ---
 
-## 🔀 Hook vs Skill
+## ⚠️ Windows Notes
 
-| Aspect | Hook Version | Skill Version |
-|--------|--------------|---------------|
-| **Automation** | ✅ Fully automatic | ❌ Manual invocation |
-| **Control** | Passive | Active |
-| **Best for** | Daily workflow | Explicit management |
-| **Setup** | Run installer | Copy skill file |
-
-### Using the Skill Version
-
-```bash
-# Copy to Claude plugins
-mkdir -p ~/.claude/plugins/session-sync/skills
-cp skill/session-sync.md ~/.claude/plugins/session-sync/skills/
-
-# Then use in Claude Code
-/session-sync
-```
+1. **Git for Windows required** - Claude Code uses Git Bash internally to execute all shell commands
+2. **WSL2 recommended** - For better compatibility, consider using WSL2
+3. **PowerShell execution policy** - If you encounter permission issues, run as Administrator:
+   ```powershell
+   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+   ```
 
 ---
 
 ## 🗑️ Uninstall
 
+**macOS / Linux:**
 ```bash
 bash hook/uninstall.sh
 ```
 
-This will:
-- Remove the hook from settings.json
-- Optionally delete sessions.json
+**Windows:**
+```powershell
+.\hook\uninstall.ps1
+```
 
 ---
 
@@ -200,35 +170,13 @@ This will:
 
 ## 🔗 Related Projects
 
-This project is designed to work with:
-
 | Project | Description |
 |---------|-------------|
-| [Codex MCP](https://github.com/GuDaStudio/codexmcp) | OpenAI Codex integration for Claude Code |
-| [Gemini MCP](https://github.com/GuDaStudio/geminimcp) | Google Gemini integration for Claude Code |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+| [Codex MCP](https://github.com/GuDaStudio/codexmcp) | Codex integration for Claude Code |
+| [Gemini MCP](https://github.com/GuDaStudio/geminimcp) | Gemini integration for Claude Code |
 
 ---
 
 ## 📄 License
 
 [MIT](LICENSE) © 2026 Boulea7
-
----
-
-<div align="center">
-
-**Made with ❤️ for the Claude Code community**
-
-</div>
