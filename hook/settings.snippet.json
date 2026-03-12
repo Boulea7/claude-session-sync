@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__codexmcp__codex|mcp__gemini__gemini",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat .claude/sessions.json 2>/dev/null || echo '{\"_hint\": \"No active sessions. Remember to save SESSION_ID after MCP calls.\"}'",
+            "timeout": 3000
+          }
+        ]
+      }
+    ]
+  }
+}

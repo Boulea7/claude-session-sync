@@ -1,0 +1,9 @@
+{
+  "_schema_version": "1.0",
+  "_hint": "This file tracks SESSION_IDs for multi-model collaboration. Update this file after each MCP call.",
+  "_usage": {
+    "codex": "Store codex SESSION_ID under tasks.<task_name>.codex_session_id",
+    "gemini": "Store gemini SESSION_ID under tasks.<task_name>.gemini_session_id"
+  },
+  "tasks": {}
+}
