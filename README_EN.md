@@ -95,6 +95,10 @@ Claude calls MCP and updates SESSION_ID
 }
 ```
 
+> ⚠️ **Note**: The hook only **reads** session state and injects it into context. It does NOT auto-write returned SESSION_IDs back. You need to update manually or use a skill.
+
+> 🔒 **Privacy**: `sessions.json` content is output to context before MCP calls. **Do not store** tokens, passwords, cookies, or other sensitive data.
+
 ---
 
 ## ⚙️ Configuration

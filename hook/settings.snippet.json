@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f .claude/sessions.json ] || (mkdir -p .claude && echo '{\"_schema_version\":\"1.0\",\"_hint\":\"Track SESSION_IDs here. Update after each MCP call.\",\"tasks\":{}}' > .claude/sessions.json); cat .claude/sessions.json",
+            "command": "if [ -e .claude ] && [ ! -d .claude ]; then echo '{\"_error\":\"Invalid .claude path\"}'; exit 1; fi; if [ -L .claude ] || [ -L .claude/sessions.json ]; then echo '{\"_error\":\"Refusing symlinked sessions.json\"}'; exit 1; fi; [ -f .claude/sessions.json ] || (umask 077 && mkdir -p .claude && echo '{\"_schema_version\":\"1.0\",\"_hint\":\"Track SESSION_IDs here.\",\"tasks\":{}}' > .claude/sessions.json); cat .claude/sessions.json",
             "timeout": 3000
           }
         ]

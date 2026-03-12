@@ -3,39 +3,59 @@
 # claude-session-sync installer
 # Automatically configures PreToolUse hooks for SESSION_ID management
 
-set -e
+set -euo pipefail
+umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 BACKUP_DIR="$CLAUDE_DIR/backups"
+MATCHER="mcp__codexmcp__codex|mcp__gemini__gemini"
+TMP_FILE=""
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
+
+cleanup() {
+    if [ -n "${TMP_FILE:-}" ] && [ -f "$TMP_FILE" ]; then
+        rm -f "$TMP_FILE"
+    fi
+}
+trap cleanup EXIT
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  🔄 claude-session-sync installer${NC}"
+echo -e "${BLUE}  claude-session-sync installer${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Check if jq is installed
+# Check jq
 if ! command -v jq &> /dev/null; then
     echo -e "${RED}Error: jq is required but not installed.${NC}"
-    echo -e "Install it with: ${YELLOW}brew install jq${NC} (macOS) or ${YELLOW}apt install jq${NC} (Linux)"
+    echo -e "Install: ${YELLOW}brew install jq${NC} (macOS) or ${YELLOW}apt install jq${NC} (Linux)"
     exit 1
 fi
 
-# Create .claude directory if it doesn't exist
+# Check settings.snippet.json
+if [ ! -f "$SCRIPT_DIR/settings.snippet.json" ]; then
+    echo -e "${RED}Error: settings.snippet.json not found.${NC}"
+    exit 1
+fi
+
+if ! jq empty "$SCRIPT_DIR/settings.snippet.json" >/dev/null 2>&1; then
+    echo -e "${RED}Error: settings.snippet.json is not valid JSON.${NC}"
+    exit 1
+fi
+
+# Create directories
 if [ ! -d "$CLAUDE_DIR" ]; then
     echo -e "${YELLOW}Creating $CLAUDE_DIR directory...${NC}"
     mkdir -p "$CLAUDE_DIR"
 fi
 
-# Create backup directory
 mkdir -p "$BACKUP_DIR"
 
 # Backup existing settings.json
@@ -46,39 +66,46 @@ if [ -f "$SETTINGS_FILE" ]; then
     cp "$SETTINGS_FILE" "$BACKUP_FILE"
 else
     echo -e "${YELLOW}No existing settings.json found, creating new one...${NC}"
-    echo '{}' > "$SETTINGS_FILE"
+    printf '{}\\n' > "$SETTINGS_FILE"
 fi
 
-# Read the hook configuration
-HOOK_CONFIG=$(cat "$SCRIPT_DIR/settings.snippet.json")
+# Validate existing settings.json
+if ! jq empty "$SETTINGS_FILE" >/dev/null 2>&1; then
+    echo -e "${RED}Error: $SETTINGS_FILE is not valid JSON. Fix or restore from backup.${NC}"
+    exit 1
+fi
 
-# Merge hooks into settings.json
+# Read hook configuration
+HOOK_CONFIG="$(cat "$SCRIPT_DIR/settings.snippet.json")"
+
 echo -e "${GREEN}Merging hook configuration...${NC}"
 
-# Check if hooks already exist
-EXISTING_HOOKS=$(jq '.hooks.PreToolUse // []' "$SETTINGS_FILE")
-
-# Check if our hook is already installed
-if echo "$EXISTING_HOOKS" | grep -q "mcp__codexmcp__codex|mcp__gemini__gemini"; then
+# Check if hook already installed
+if jq -e --arg matcher "$MATCHER" '(.hooks.PreToolUse // []) | any(.matcher == $matcher)' "$SETTINGS_FILE" >/dev/null 2>&1; then
     echo -e "${YELLOW}Hook already installed. Updating...${NC}"
-    # Remove existing hook and add new one
-    jq 'del(.hooks.PreToolUse[] | select(.matcher == "mcp__codexmcp__codex|mcp__gemini__gemini"))' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp"
-    mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
 fi
 
-# Merge the new hook configuration
-jq --argjson hook "$HOOK_CONFIG" '
-  .hooks.PreToolUse = ((.hooks.PreToolUse // []) + $hook.hooks.PreToolUse)
-' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp"
-mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+# Merge: remove existing hook with same matcher, then add new one
+TMP_FILE="$(mktemp "$CLAUDE_DIR/settings.json.XXXXXX.tmp")"
+jq --argjson hook "$HOOK_CONFIG" --arg matcher "$MATCHER" '
+  .hooks.PreToolUse = (((.hooks.PreToolUse // []) | map(select(.matcher != $matcher))) + $hook.hooks.PreToolUse)
+' "$SETTINGS_FILE" > "$TMP_FILE"
+mv "$TMP_FILE" "$SETTINGS_FILE"
+TMP_FILE=""
 
 echo -e "${GREEN}Hook configuration merged successfully!${NC}"
 echo ""
 
-# Copy sessions.json template to .claude directory
+# Create sessions.json template
 echo -e "${GREEN}Creating sessions.json template...${NC}"
 if [ ! -f "$CLAUDE_DIR/sessions.json" ]; then
-    cp "$SCRIPT_DIR/sessions.json" "$CLAUDE_DIR/sessions.json"
+    cat > "$CLAUDE_DIR/sessions.json" << 'EOF'
+{
+  "_schema_version": "1.0",
+  "_hint": "Track SESSION_IDs here. Do not store secrets or tokens.",
+  "tasks": {}
+}
+EOF
     echo -e "  Created: $CLAUDE_DIR/sessions.json"
 else
     echo -e "${YELLOW}  sessions.json already exists, skipping...${NC}"
@@ -92,9 +119,4 @@ echo ""
 echo -e "Next steps:"
 echo -e "  1. Restart Claude Code to apply changes"
 echo -e "  2. ${GREEN}That's it!${NC} The hook will auto-create sessions.json when needed"
-echo ""
-echo -e "The hook automatically:"
-echo -e "  • Creates ${YELLOW}.claude/sessions.json${NC} in each project on first MCP call"
-echo -e "  • Injects session state before Codex/Gemini calls"
-echo -e "  • No manual setup required per project"
 echo ""

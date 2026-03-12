@@ -180,9 +180,11 @@ If you encounter issues not covered here:
 
 2. **Open a new issue with:**
    - Your OS and Claude Code version
-   - Contents of `~/.claude/settings.json`
+   - **仅 hook 相关的** settings.json 片段（移除 token、API key 等敏感信息）
    - Error messages or unexpected behavior
    - Steps to reproduce
+
+> ⚠️ **隐私警告**：提交 issue 前，务必删除 settings.json 中的 token、密码、API key、SESSION_ID 等敏感信息。
 
 ---
 

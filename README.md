@@ -95,6 +95,10 @@ Claude 调用 MCP 并更新 SESSION_ID
 }
 ```
 
+> ⚠️ **注意**：Hook 只负责**读取**会话状态并注入上下文，不会自动回写 MCP 返回的 SESSION_ID。你需要手动更新或配合 skill 保存返回值。
+
+> 🔒 **隐私提醒**：`sessions.json` 内容会在 MCP 调用前输出到上下文。**不要存储** token、密码、cookie 等敏感信息。
+
 ---
 
 ## ⚙️ 配置说明

@@ -1,15 +1,17 @@
 # claude-session-sync uninstaller for Windows
 # Run in PowerShell: .\uninstall.ps1
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ClaudeDir = "$env:USERPROFILE\.claude"
 $SettingsFile = "$ClaudeDir\settings.json"
 $BackupDir = "$ClaudeDir\backups"
+$Matcher = "mcp__codexmcp__codex|mcp__gemini__gemini"
 
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
-Write-Host "  🔄 claude-session-sync uninstaller (Windows)" -ForegroundColor Blue
+Write-Host "  claude-session-sync uninstaller (Windows)" -ForegroundColor Blue
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
 Write-Host ""
 
@@ -26,14 +28,20 @@ Write-Host "Backing up settings.json to:" -ForegroundColor Yellow
 Write-Host "  $backupFile"
 Copy-Item $SettingsFile $backupFile
 
-# Load and modify settings
-$settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+# Load settings
+try {
+    $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+} catch {
+    Write-Host "Error: settings.json is not valid JSON." -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "Removing hook configuration..." -ForegroundColor Green
 
-if ($settings.hooks -and $settings.hooks.PreToolUse) {
+# Remove hook safely (check if PreToolUse exists)
+if ($settings.hooks -and $settings.hooks.PSObject.Properties["PreToolUse"]) {
     $settings.hooks.PreToolUse = @($settings.hooks.PreToolUse | Where-Object {
-        $_.matcher -ne "mcp__codexmcp__codex|mcp__gemini__gemini"
+        $_.matcher -ne $Matcher
     })
 
     # Clean up empty arrays
@@ -45,7 +53,10 @@ if ($settings.hooks -and $settings.hooks.PreToolUse) {
     }
 }
 
-$settings | ConvertTo-Json -Depth 10 | Set-Content $SettingsFile -Encoding UTF8
+# Save settings (UTF-8 without BOM)
+$jsonContent = $settings | ConvertTo-Json -Depth 10
+$encoding = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($SettingsFile, $jsonContent, $encoding)
 
 Write-Host "Hook removed successfully!" -ForegroundColor Green
 Write-Host ""

@@ -1,17 +1,35 @@
 # claude-session-sync installer for Windows
 # Run in PowerShell: .\install.ps1
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ClaudeDir = "$env:USERPROFILE\.claude"
 $SettingsFile = "$ClaudeDir\settings.json"
 $BackupDir = "$ClaudeDir\backups"
+$Matcher = "mcp__codexmcp__codex|mcp__gemini__gemini"
 
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
-Write-Host "  🔄 claude-session-sync installer (Windows)" -ForegroundColor Blue
+Write-Host "  claude-session-sync installer (Windows)" -ForegroundColor Blue
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
 Write-Host ""
+
+# Check Git Bash
+$gitBash = $env:CLAUDE_CODE_GIT_BASH_PATH
+if (-not $gitBash) {
+    $gitBash = @(
+        "$env:ProgramFiles\Git\bin\bash.exe",
+        "${env:ProgramFiles(x86)}\Git\bin\bash.exe"
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+}
+
+if (-not $gitBash) {
+    Write-Host "Error: Git Bash not found." -ForegroundColor Red
+    Write-Host "Install Git for Windows or set CLAUDE_CODE_GIT_BASH_PATH." -ForegroundColor Red
+    exit 1
+}
+Write-Host "Git Bash found: $gitBash" -ForegroundColor Green
 
 # Create directories
 if (-not (Test-Path $ClaudeDir)) {
@@ -21,26 +39,31 @@ if (-not (Test-Path $ClaudeDir)) {
 
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 
-# Backup existing settings.json
+# Backup and load existing settings.json
 if (Test-Path $SettingsFile) {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $backupFile = "$BackupDir\settings.json.$timestamp.bak"
     Write-Host "Backing up existing settings.json to:" -ForegroundColor Yellow
     Write-Host "  $backupFile"
     Copy-Item $SettingsFile $backupFile
-    $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+    try {
+        $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+    } catch {
+        Write-Host "Error: settings.json is not valid JSON. Restore from backup first." -ForegroundColor Red
+        exit 1
+    }
 } else {
     Write-Host "No existing settings.json found, creating new one..." -ForegroundColor Yellow
-    $settings = @{}
+    $settings = [pscustomobject]@{}
 }
 
-# Define the hook configuration
-$hookCommand = '[ -f .claude/sessions.json ] || (mkdir -p .claude && echo ''{"_schema_version":"1.0","_hint":"Track SESSION_IDs here. Update after each MCP call.","tasks":{}}'' > .claude/sessions.json); cat .claude/sessions.json'
+# Define the hook command (with symlink protection)
+$hookCommand = 'if [ -e .claude ] && [ ! -d .claude ]; then echo ''{"_error":"Invalid .claude path"}''; exit 1; fi; if [ -L .claude ] || [ -L .claude/sessions.json ]; then echo ''{"_error":"Refusing symlinked sessions.json"}''; exit 1; fi; [ -f .claude/sessions.json ] || (umask 077 && mkdir -p .claude && echo ''{"_schema_version":"1.0","_hint":"Track SESSION_IDs here.","tasks":{}}'' > .claude/sessions.json); cat .claude/sessions.json'
 
-$newHook = @{
-    matcher = "mcp__codexmcp__codex|mcp__gemini__gemini"
+$newHook = [pscustomobject]@{
+    matcher = $Matcher
     hooks = @(
-        @{
+        [pscustomobject]@{
             type = "command"
             command = $hookCommand
             timeout = 3000
@@ -50,24 +73,26 @@ $newHook = @{
 
 Write-Host "Merging hook configuration..." -ForegroundColor Green
 
-# Initialize hooks structure if needed
-if (-not $settings.hooks) {
-    $settings | Add-Member -NotePropertyName "hooks" -NotePropertyValue @{} -Force
+# Initialize hooks structure if needed (using pscustomobject for proper JSON serialization)
+if (-not $settings.PSObject.Properties["hooks"]) {
+    $settings | Add-Member -NotePropertyName "hooks" -NotePropertyValue ([pscustomobject]@{}) -Force
 }
-if (-not $settings.hooks.PreToolUse) {
+if (-not $settings.hooks.PSObject.Properties["PreToolUse"]) {
     $settings.hooks | Add-Member -NotePropertyName "PreToolUse" -NotePropertyValue @() -Force
 }
 
-# Remove existing session-sync hook if present
+# Remove existing session-sync hook if present (by matcher)
 $settings.hooks.PreToolUse = @($settings.hooks.PreToolUse | Where-Object {
-    $_.matcher -ne "mcp__codexmcp__codex|mcp__gemini__gemini"
+    $_.matcher -ne $Matcher
 })
 
 # Add new hook
 $settings.hooks.PreToolUse += $newHook
 
-# Save settings
-$settings | ConvertTo-Json -Depth 10 | Set-Content $SettingsFile -Encoding UTF8
+# Save settings (UTF-8 without BOM)
+$jsonContent = $settings | ConvertTo-Json -Depth 10
+$encoding = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($SettingsFile, $jsonContent, $encoding)
 
 Write-Host "Hook configuration merged successfully!" -ForegroundColor Green
 Write-Host ""
@@ -77,16 +102,13 @@ $sessionsFile = "$ClaudeDir\sessions.json"
 Write-Host "Creating sessions.json template..." -ForegroundColor Green
 
 if (-not (Test-Path $sessionsFile)) {
-    $sessionsTemplate = @{
+    $sessionsTemplate = [pscustomobject]@{
         _schema_version = "1.0"
-        _hint = "This file tracks SESSION_IDs for multi-model collaboration. Update this file after each MCP call."
-        _usage = @{
-            codex = "Store codex SESSION_ID under tasks.<task_name>.codex_session_id"
-            gemini = "Store gemini SESSION_ID under tasks.<task_name>.gemini_session_id"
-        }
-        tasks = @{}
+        _hint = "Track SESSION_IDs here. Do not store secrets or tokens."
+        tasks = [pscustomobject]@{}
     }
-    $sessionsTemplate | ConvertTo-Json -Depth 5 | Set-Content $sessionsFile -Encoding UTF8
+    $sessionsJson = $sessionsTemplate | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($sessionsFile, $sessionsJson, $encoding)
     Write-Host "  Created: $sessionsFile"
 } else {
     Write-Host "  sessions.json already exists, skipping..." -ForegroundColor Yellow
