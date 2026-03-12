@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat .claude/sessions.json 2>/dev/null || echo '{\"_hint\": \"No active sessions. Remember to save SESSION_ID after MCP calls.\"}'",
+            "command": "[ -f .claude/sessions.json ] || (mkdir -p .claude && echo '{\"_schema_version\":\"1.0\",\"_hint\":\"Track SESSION_IDs here. Update after each MCP call.\",\"tasks\":{}}' > .claude/sessions.json); cat .claude/sessions.json",
             "timeout": 3000
           }
         ]

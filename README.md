@@ -95,29 +95,25 @@ bash hook/install.sh
 
 ## 🚀 Usage / 使用
 
-### 1. Project Setup / 项目设置
+### Zero Configuration / 零配置
 
-For each project, create a local sessions file:
+**No manual setup required!** The hook automatically creates `.claude/sessions.json` when needed.
 
-```bash
-cd /your/project
-mkdir -p .claude
-cp ~/.claude/sessions.json .claude/sessions.json
-```
+**无需手动设置！** Hook 在需要时自动创建 `.claude/sessions.json`。
 
-### 2. Automatic Workflow / 自动工作流
+### Fully Automatic Workflow / 全自动工作流
 
-Once set up, the hook automatically:
+The hook automatically handles everything:
 
-1. **Before MCP call** → Reads `.claude/sessions.json`
+1. **Before MCP call** → Auto-creates `.claude/sessions.json` if missing
 2. **Injects context** → Claude sees active session IDs
-3. **After MCP call** → You update the SESSION_ID
+3. **After MCP call** → Claude updates the SESSION_ID
 
-设置完成后，hook 自动：
+Hook 全自动处理一切：
 
-1. **MCP 调用前** → 读取 `.claude/sessions.json`
+1. **MCP 调用前** → 如果不存在，自动创建 `.claude/sessions.json`
 2. **注入上下文** → Claude 看到活跃的 SESSION_ID
-3. **MCP 调用后** → 你更新 SESSION_ID
+3. **MCP 调用后** → Claude 更新 SESSION_ID
 
 ### 3. Session File Format / 会话文件格式
 
@@ -152,7 +148,7 @@ The hook is added to `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "cat .claude/sessions.json 2>/dev/null || echo '{...}'",
+            "command": "[ -f .claude/sessions.json ] || (mkdir -p .claude && echo '{...}' > .claude/sessions.json); cat .claude/sessions.json",
             "timeout": 3000
           }
         ]
@@ -161,6 +157,9 @@ The hook is added to `~/.claude/settings.json`:
   }
 }
 ```
+
+> The hook auto-creates the sessions file if it doesn't exist.
+> 如果会话文件不存在，hook 会自动创建。
 
 ### Customization / 自定义
 
