@@ -122,8 +122,8 @@ See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for common issues.
 ### Resuming Work / 恢复工作
 
 1. Check sessions.json for your task's SESSION_ID
-2. Pass it to your next MCP call
-3. The hook will remind you of active sessions automatically
+2. The hook automatically injects the full sessions.json content into context before each MCP call
+3. Pass the SESSION_ID to your next MCP call to resume the prior conversation
 
 ---
 

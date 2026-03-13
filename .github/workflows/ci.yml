@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate JSON & Shell Scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files..."
+          for f in hook/settings.snippet.json docs/sessions-example.json; do
+            echo "  Checking $f"
+            jq empty "$f"
+          done
+          echo "All JSON files are valid."
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck on bash scripts
+        run: |
+          echo "Running shellcheck..."
+          shellcheck hook/install.sh hook/uninstall.sh
+          echo "shellcheck passed."
+
+      - name: Verify hook command produces valid JSON
+        run: |
+          echo "Verifying hook command output is valid JSON..."
+          mkdir -p .claude
+          cmd=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' hook/settings.snippet.json)
+          output=$(eval "$cmd")
+          echo "$output" | jq empty
+          echo "Hook command output is valid JSON."
+          rm -rf .claude

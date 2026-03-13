@@ -46,6 +46,8 @@ if (Test-Path $SettingsFile) {
     Write-Host "Backing up existing settings.json to:" -ForegroundColor Yellow
     Write-Host "  $backupFile"
     Copy-Item $SettingsFile $backupFile
+    # Keep only the 5 most recent backups
+    Get-ChildItem "$BackupDir\settings.json.*.bak" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
     try {
         $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
     } catch {

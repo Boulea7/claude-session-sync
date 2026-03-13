@@ -27,6 +27,8 @@ $backupFile = "$BackupDir\settings.json.$timestamp.pre-uninstall.bak"
 Write-Host "Backing up settings.json to:" -ForegroundColor Yellow
 Write-Host "  $backupFile"
 Copy-Item $SettingsFile $backupFile
+# Keep only the 5 most recent backups
+Get-ChildItem "$BackupDir\settings.json.*.bak" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
 
 # Load settings
 try {
