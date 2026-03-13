@@ -64,6 +64,8 @@ if [ -f "$SETTINGS_FILE" ]; then
     echo -e "${YELLOW}Backing up existing settings.json to:${NC}"
     echo -e "  $BACKUP_FILE"
     cp "$SETTINGS_FILE" "$BACKUP_FILE"
+    # Keep only the 5 most recent backups
+    find "$BACKUP_DIR" -name "settings.json.*.bak" | sort -r | tail -n +6 | xargs rm -f
 else
     echo -e "${YELLOW}No existing settings.json found, creating new one...${NC}"
     echo '{}' > "$SETTINGS_FILE"
