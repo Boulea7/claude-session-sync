@@ -27,17 +27,17 @@ Write-Host "  claude-session-sync uninstaller (Windows)" -ForegroundColor Blue
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
 Write-Host ""
 
-if (-not (Test-Path $SettingsFile)) {
-    Write-Host "No settings.json found. Nothing to uninstall." -ForegroundColor Yellow
-    exit 0
-}
-
 # Refuse symlinked paths
 foreach ($path in @($ClaudeDir, $SettingsFile, $BackupDir)) {
     if ((Test-Path -LiteralPath $path) -and (Get-Item -LiteralPath $path).LinkType) {
         Write-Host "Error: refusing symlinked path: $path" -ForegroundColor Red
         exit 1
     }
+}
+
+if (-not (Test-Path $SettingsFile)) {
+    Write-Host "No settings.json found. Nothing to uninstall." -ForegroundColor Yellow
+    exit 0
 }
 
 # Backup before uninstall

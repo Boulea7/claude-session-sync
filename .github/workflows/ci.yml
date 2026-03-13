@@ -56,9 +56,15 @@ jobs:
         shell: pwsh
         run: |
           foreach ($file in @("hook/install.ps1", "hook/uninstall.ps1")) {
+            $errs = $null
             $null = [System.Management.Automation.Language.Parser]::ParseFile(
-              (Resolve-Path $file).Path, [ref]$null, [ref]$null
+              (Resolve-Path $file).Path, [ref]$null, [ref]$errs
             )
+            if ($errs) {
+              Write-Host "FAIL: $file" -ForegroundColor Red
+              $errs | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+              exit 1
+            }
             Write-Host "OK: $file"
           }
           Write-Host "PowerShell syntax validation passed."
