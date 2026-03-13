@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $ClaudeDir = "$env:USERPROFILE\.claude"
 $SettingsFile = "$ClaudeDir\settings.json"
 $BackupDir = "$ClaudeDir\backups"
-$Matcher = "mcp__codexmcp__codex|mcp__gemini__gemini"
+$Matcher = "mcp__codex__codex|mcp__gemini__gemini"
 
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
