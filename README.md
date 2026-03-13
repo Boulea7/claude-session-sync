@@ -28,6 +28,19 @@
 
 ---
 
+## 🔑 前置条件
+
+本工具依赖以下两个 MCP 服务，**安装前请确认已配置至少一个**：
+
+| MCP | 仓库 | 说明 |
+|-----|------|------|
+| **Codex MCP** | [GuDaStudio/codexmcp](https://github.com/GuDaStudio/codexmcp) | 将 OpenAI Codex 集成到 Claude Code，提供强大的后端逻辑分析与代码生成能力 |
+| **Gemini MCP** | [GuDaStudio/geminimcp](https://github.com/GuDaStudio/geminimcp) | 将 Google Gemini 集成到 Claude Code，提供出色的前端设计与多模态理解能力 |
+
+> 💡 **推荐**：同时安装两个 MCP，充分发挥多模型协作优势——Codex 负责逻辑/后端，Gemini 负责设计/前端。
+
+---
+
 ## 📦 安装
 
 ### macOS / Linux
@@ -118,7 +131,7 @@ Claude 调用 MCP 并更新 SESSION_ID
 {
   "hooks": {
     "PreToolUse": [{
-      "matcher": "mcp__codexmcp__codex|mcp__gemini__gemini",
+      "matcher": "mcp__codex__codex|mcp__gemini__gemini",
       "hooks": [{
         "type": "command",
         "command": "[ -f .claude/sessions.json ] || (mkdir -p .claude && echo '{...}' > .claude/sessions.json); cat .claude/sessions.json",
@@ -129,12 +142,14 @@ Claude 调用 MCP 并更新 SESSION_ID
 }
 ```
 
+> **注意：** 以上为简化示例，便于阅读。实际安装的命令还包含符号链接保护和权限加固。完整命令请参见 `hook/settings.snippet.json`。
+
 ### 添加其他 MCP 工具
 
 修改 `matcher` 字段：
 
 ```json
-"matcher": "mcp__codexmcp__codex|mcp__gemini__gemini|mcp__other__tool"
+"matcher": "mcp__codex__codex|mcp__gemini__gemini|mcp__other__tool"
 ```
 
 ---

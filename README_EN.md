@@ -28,6 +28,19 @@ Use **PreToolUse Hook** to automatically inject session state before each MCP ca
 
 ---
 
+## 🔑 Prerequisites
+
+This tool requires at least one of the following MCP servers to be configured in Claude Code:
+
+| MCP | Repository | Description |
+|-----|-----------|-------------|
+| **Codex MCP** | [GuDaStudio/codexmcp](https://github.com/GuDaStudio/codexmcp) | Integrates OpenAI Codex into Claude Code — excellent for backend logic, debugging, and code analysis |
+| **Gemini MCP** | [GuDaStudio/geminimcp](https://github.com/GuDaStudio/geminimcp) | Integrates Google Gemini into Claude Code — excellent for frontend design and multimodal understanding |
+
+> 💡 **Recommended**: Install both MCPs to unlock full multi-model collaboration — Codex for logic/backend, Gemini for design/frontend.
+
+---
+
 ## 📦 Installation
 
 ### macOS / Linux
@@ -118,7 +131,7 @@ The installer automatically adds:
 {
   "hooks": {
     "PreToolUse": [{
-      "matcher": "mcp__codexmcp__codex|mcp__gemini__gemini",
+      "matcher": "mcp__codex__codex|mcp__gemini__gemini",
       "hooks": [{
         "type": "command",
         "command": "[ -f .claude/sessions.json ] || (mkdir -p .claude && echo '{...}' > .claude/sessions.json); cat .claude/sessions.json",
@@ -129,12 +142,14 @@ The installer automatically adds:
 }
 ```
 
+> **Note:** Simplified for readability. The actual installed command includes symlink protection and permission hardening. See `hook/settings.snippet.json` for the full command.
+
 ### Add Other MCP Tools
 
 Modify the `matcher` field:
 
 ```json
-"matcher": "mcp__codexmcp__codex|mcp__gemini__gemini|mcp__other__tool"
+"matcher": "mcp__codex__codex|mcp__gemini__gemini|mcp__other__tool"
 ```
 
 ---

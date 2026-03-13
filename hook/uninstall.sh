@@ -9,7 +9,7 @@ umask 077
 CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 BACKUP_DIR="$CLAUDE_DIR/backups"
-MATCHER="mcp__codexmcp__codex|mcp__gemini__gemini"
+MATCHER="mcp__codex__codex|mcp__gemini__gemini"
 TMP_FILE=""
 
 # Colors
@@ -72,8 +72,8 @@ echo -e "${GREEN}Hook removed successfully!${NC}"
 echo ""
 
 # Ask about sessions.json (only in interactive mode)
-echo -e "${YELLOW}Do you want to remove ~/.claude/sessions.json? (y/N)${NC}"
 if [ -t 0 ]; then
+    echo -e "${YELLOW}Do you want to remove ~/.claude/sessions.json? (y/N)${NC}"
     read -r response
 else
     response="N"

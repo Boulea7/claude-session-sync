@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 BACKUP_DIR="$CLAUDE_DIR/backups"
-MATCHER="mcp__codexmcp__codex|mcp__gemini__gemini"
+MATCHER="mcp__codex__codex|mcp__gemini__gemini"
 TMP_FILE=""
 
 # Colors
@@ -66,7 +66,7 @@ if [ -f "$SETTINGS_FILE" ]; then
     cp "$SETTINGS_FILE" "$BACKUP_FILE"
 else
     echo -e "${YELLOW}No existing settings.json found, creating new one...${NC}"
-    printf '{}\\n' > "$SETTINGS_FILE"
+    echo '{}' > "$SETTINGS_FILE"
 fi
 
 # Validate existing settings.json

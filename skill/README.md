@@ -13,14 +13,14 @@ mkdir -p ~/.claude/plugins/session-sync/skills
 cp session-sync.md ~/.claude/plugins/session-sync/skills/
 ```
 
-### Option 2: Reference from your project / 从项目中引用
-
-Create a symbolic link in your project:
+### Option 2: Copy to your project / 复制到项目目录
 
 ```bash
 mkdir -p .claude/skills
-ln -s /path/to/claude-session-sync/skill/session-sync.md .claude/skills/
+cp /path/to/claude-session-sync/skill/session-sync.md .claude/skills/
 ```
+
+> **Note:** Do not use a symlink for `session-sync.md`. The hook checks `.claude/sessions.json` for symlinks and refuses to read symlinked paths as a security measure.
 
 ## Usage / 使用
 

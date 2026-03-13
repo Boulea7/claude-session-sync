@@ -57,7 +57,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 2. **Check matcher pattern / 检查匹配模式:**
 
-   The hook should match: `mcp__codexmcp__codex|mcp__gemini__gemini`
+   The hook should match: `mcp__codex__codex|mcp__gemini__gemini`
 
    If your MCP tools have different names, update the matcher.
 
@@ -70,7 +70,8 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ### 2. sessions.json Not Found / 找不到 sessions.json
 
 **Symptoms / 症状:**
-- Hook outputs: `No active sessions. Remember to save SESSION_ID...`
+- Hook auto-creates `.claude/sessions.json` with an empty `tasks: {}` template
+- Sessions appear empty even after saving SESSION_IDs
 
 **Solutions / 解决方案:**
 
@@ -161,9 +162,9 @@ sudo yum install jq
 **Solutions / 解决方案:**
 
 ```bash
-# Fix permissions
-chmod 644 ~/.claude/settings.json
-chmod 755 ~/.claude
+# Fix permissions (matches installer's umask 077 security policy)
+chmod 600 ~/.claude/settings.json
+chmod 700 ~/.claude
 
 # Run install with correct permissions
 bash hook/install.sh

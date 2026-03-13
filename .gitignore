@@ -20,3 +20,17 @@ Thumbs.db
 
 # Local configuration (should not be committed)
 *.local.json
+
+# Session data (ephemeral, project-specific)
+.claude/sessions.json
+
+# Environment and secrets
+.env
+.env.*
+
+# Credentials and keys
+*.pem
+*.key
+credentials*
+**/api_key*
+**/secret*

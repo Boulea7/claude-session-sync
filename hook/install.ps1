@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $ClaudeDir = "$env:USERPROFILE\.claude"
 $SettingsFile = "$ClaudeDir\settings.json"
 $BackupDir = "$ClaudeDir\backups"
-$Matcher = "mcp__codexmcp__codex|mcp__gemini__gemini"
+$Matcher = "mcp__codex__codex|mcp__gemini__gemini"
 
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
@@ -57,19 +57,19 @@ if (Test-Path $SettingsFile) {
     $settings = [pscustomobject]@{}
 }
 
-# Define the hook command (with symlink protection)
-$hookCommand = 'if [ -e .claude ] && [ ! -d .claude ]; then echo ''{"_error":"Invalid .claude path"}''; exit 1; fi; if [ -L .claude ] || [ -L .claude/sessions.json ]; then echo ''{"_error":"Refusing symlinked sessions.json"}''; exit 1; fi; [ -f .claude/sessions.json ] || (umask 077 && mkdir -p .claude && echo ''{"_schema_version":"1.0","_hint":"Track SESSION_IDs here.","tasks":{}}'' > .claude/sessions.json); cat .claude/sessions.json'
-
-$newHook = [pscustomobject]@{
-    matcher = $Matcher
-    hooks = @(
-        [pscustomobject]@{
-            type = "command"
-            command = $hookCommand
-            timeout = 3000
-        }
-    )
+# Read hook configuration from settings.snippet.json
+$snippetPath = Join-Path $PSScriptRoot "settings.snippet.json"
+if (-not (Test-Path $snippetPath)) {
+    Write-Host "Error: settings.snippet.json not found." -ForegroundColor Red
+    exit 1
 }
+try {
+    $snippetConfig = Get-Content $snippetPath -Raw | ConvertFrom-Json
+} catch {
+    Write-Host "Error: settings.snippet.json is not valid JSON." -ForegroundColor Red
+    exit 1
+}
+$newHooks = $snippetConfig.hooks.PreToolUse
 
 Write-Host "Merging hook configuration..." -ForegroundColor Green
 
@@ -86,8 +86,10 @@ $settings.hooks.PreToolUse = @($settings.hooks.PreToolUse | Where-Object {
     $_.matcher -ne $Matcher
 })
 
-# Add new hook
-$settings.hooks.PreToolUse += $newHook
+# Add new hooks from snippet
+foreach ($hook in $newHooks) {
+    $settings.hooks.PreToolUse += $hook
+}
 
 # Save settings (UTF-8 without BOM)
 $jsonContent = $settings | ConvertTo-Json -Depth 10
