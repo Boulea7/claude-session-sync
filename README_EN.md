@@ -72,7 +72,6 @@ cd claude-session-sync
 bash hook/install.sh
 ```
 
-> [!NOTE]
 > **Dependency**: Requires [jq](https://stedolan.github.io/jq/) (`brew install jq` or `apt install jq`)
 
 </details>
@@ -86,11 +85,9 @@ cd claude-session-sync
 .\hook\install.ps1
 ```
 
-> [!NOTE]
 > **Dependency**: Requires [Git for Windows](https://git-scm.com/downloads/win) (Claude Code uses Git Bash internally to execute all shell commands)
 
-> [!WARNING]
-> **Windows Notes**
+> ⚠️ **Windows Notes**
 > 1. **Git for Windows is required**
 > 2. **WSL2 recommended** — For better compatibility, WSL2 is the more stable option
 > 3. **PowerShell execution policy** — If you encounter permission issues, run as Administrator:
