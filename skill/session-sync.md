@@ -40,15 +40,17 @@ When the user wants to save a session ID, update the sessions.json file:
   "_schema_version": "1.0",
   "tasks": {
     "<task_name>": {
-      "description": "<brief task description>",
+      "description": "<optional: brief task description>",
       "codex_session_id": "<SESSION_ID from codex>",
       "gemini_session_id": "<SESSION_ID from gemini>",
-      "created_at": "<ISO timestamp>",
-      "updated_at": "<ISO timestamp>"
+      "created_at": "<optional: ISO timestamp>",
+      "updated_at": "<optional: ISO timestamp>"
     }
   }
 }
 ```
+
+> Note: `description`, `created_at`, and `updated_at` are optional. Only session ID fields are required.
 
 ### 3. Resume a Session
 

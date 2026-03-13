@@ -98,7 +98,7 @@ cd claude-session-sync
 
 </details>
 
-安装完毕后，只需**重启 Claude Code** 即可生效，**无需任何其他配置**。
+安装完毕后，只需**重启 Claude Code** 即可生效，无需手动配置 hook 或预先创建 `sessions.json`。但 hook 只负责读取会话状态，MCP 返回的 SESSION_ID 仍需手动更新或配合 [session-sync skill](skill/README.md) 写回。
 
 ---
 

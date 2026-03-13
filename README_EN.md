@@ -98,7 +98,7 @@ cd claude-session-sync
 
 </details>
 
-After installation, simply **restart Claude Code** to apply the changes. **No additional configuration needed.**
+After installation, simply **restart Claude Code** to apply the changes. No manual hook configuration or pre-created `sessions.json` is needed. Note: the hook only reads session state — returned SESSION_IDs must still be written back manually or via the [session-sync skill](skill/README.md).
 
 ---
 

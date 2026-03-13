@@ -7,7 +7,19 @@ $ErrorActionPreference = "Stop"
 $ClaudeDir = "$env:USERPROFILE\.claude"
 $SettingsFile = "$ClaudeDir\settings.json"
 $BackupDir = "$ClaudeDir\backups"
-$Matcher = "mcp__codex__codex|mcp__gemini__gemini"
+# Load matcher from settings.snippet.json (SSOT)
+$snippetPath = Join-Path $PSScriptRoot "settings.snippet.json"
+if (-not (Test-Path -LiteralPath $snippetPath)) {
+    Write-Host "Error: settings.snippet.json not found." -ForegroundColor Red
+    exit 1
+}
+try {
+    $snippetConfig = Get-Content $snippetPath -Raw | ConvertFrom-Json
+} catch {
+    Write-Host "Error: settings.snippet.json is not valid JSON." -ForegroundColor Red
+    exit 1
+}
+$Matcher = ($snippetConfig.hooks.PreToolUse | Select-Object -First 1).matcher
 
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
@@ -20,6 +32,14 @@ if (-not (Test-Path $SettingsFile)) {
     exit 0
 }
 
+# Refuse symlinked paths
+foreach ($path in @($ClaudeDir, $SettingsFile, $BackupDir)) {
+    if ((Test-Path -LiteralPath $path) -and (Get-Item -LiteralPath $path).LinkType) {
+        Write-Host "Error: refusing symlinked path: $path" -ForegroundColor Red
+        exit 1
+    }
+}
+
 # Backup before uninstall
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -28,7 +48,7 @@ Write-Host "Backing up settings.json to:" -ForegroundColor Yellow
 Write-Host "  $backupFile"
 Copy-Item $SettingsFile $backupFile
 # Keep only the 5 most recent backups
-Get-ChildItem "$BackupDir\settings.json.*.bak" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
+Get-ChildItem "$BackupDir\settings.json.*.pre-uninstall.bak" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
 
 # Load settings
 try {
@@ -55,20 +75,30 @@ if ($settings.hooks -and $settings.hooks.PSObject.Properties["PreToolUse"]) {
     }
 }
 
-# Save settings (UTF-8 without BOM)
-$jsonContent = $settings | ConvertTo-Json -Depth 10
+# Save settings atomically (UTF-8 without BOM)
 $encoding = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($SettingsFile, $jsonContent, $encoding)
+$jsonContent = $settings | ConvertTo-Json -Depth 10
+$tempFile = Join-Path $ClaudeDir ("settings.json.{0}.tmp" -f [guid]::NewGuid().ToString("N"))
+try {
+    [System.IO.File]::WriteAllText($tempFile, $jsonContent, $encoding)
+    Move-Item -LiteralPath $tempFile -Destination $SettingsFile -Force
+} finally {
+    if (Test-Path -LiteralPath $tempFile) { Remove-Item -LiteralPath $tempFile -Force }
+}
 
 Write-Host "Hook removed successfully!" -ForegroundColor Green
 Write-Host ""
 
 # Ask about sessions.json
 $sessionsFile = "$ClaudeDir\sessions.json"
-if (Test-Path $sessionsFile) {
-    $response = Read-Host "Do you want to remove $sessionsFile? (y/N)"
+if (Test-Path -LiteralPath $sessionsFile) {
+    if ([Environment]::UserInteractive) {
+        $response = Read-Host "Do you want to remove ${sessionsFile}? (y/N)"
+    } else {
+        $response = "N"
+    }
     if ($response -eq "y" -or $response -eq "Y") {
-        Remove-Item $sessionsFile
+        Remove-Item -LiteralPath $sessionsFile
         Write-Host "Removed $sessionsFile" -ForegroundColor Green
     }
 }

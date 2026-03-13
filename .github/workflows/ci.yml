@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate JSON & Shell Scripts
@@ -37,7 +40,25 @@ jobs:
           echo "Verifying hook command output is valid JSON..."
           mkdir -p .claude
           cmd=$(jq -r '.hooks.PreToolUse[0].hooks[0].command' hook/settings.snippet.json)
-          output=$(eval "$cmd")
+          output=$(env -i PATH="$PATH" HOME="$HOME" bash -euo pipefail -c "$cmd")
           echo "$output" | jq empty
           echo "Hook command output is valid JSON."
           rm -rf .claude
+
+  validate-powershell:
+    name: Validate PowerShell Scripts
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          foreach ($file in @("hook/install.ps1", "hook/uninstall.ps1")) {
+            $null = [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file).Path, [ref]$null, [ref]$null
+            )
+            Write-Host "OK: $file"
+          }
+          Write-Host "PowerShell syntax validation passed."

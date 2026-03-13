@@ -76,6 +76,9 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 **Solutions / 解决方案:**
 
 1. **Create project-level sessions.json / 创建项目级 sessions.json:**
+
+   Note: `~/.claude/sessions.json` is a global template created by the installer. The hook reads the **project-level** `.claude/sessions.json` relative to your working directory — they are separate files. The `cp` below copies the global template to your project as a starting point.
+
    ```bash
    mkdir -p .claude
    cp ~/.claude/sessions.json .claude/sessions.json

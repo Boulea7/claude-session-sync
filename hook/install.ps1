@@ -7,8 +7,6 @@ $ErrorActionPreference = "Stop"
 $ClaudeDir = "$env:USERPROFILE\.claude"
 $SettingsFile = "$ClaudeDir\settings.json"
 $BackupDir = "$ClaudeDir\backups"
-$Matcher = "mcp__codex__codex|mcp__gemini__gemini"
-
 Write-Host ""
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
 Write-Host "  claude-session-sync installer (Windows)" -ForegroundColor Blue
@@ -31,6 +29,14 @@ if (-not $gitBash) {
 }
 Write-Host "Git Bash found: $gitBash" -ForegroundColor Green
 
+# Refuse symlinked paths
+foreach ($path in @($ClaudeDir, $SettingsFile, $BackupDir)) {
+    if ((Test-Path -LiteralPath $path) -and (Get-Item -LiteralPath $path).LinkType) {
+        Write-Host "Error: refusing symlinked path: $path" -ForegroundColor Red
+        exit 1
+    }
+}
+
 # Create directories
 if (-not (Test-Path $ClaudeDir)) {
     Write-Host "Creating $ClaudeDir directory..." -ForegroundColor Yellow
@@ -47,7 +53,7 @@ if (Test-Path $SettingsFile) {
     Write-Host "  $backupFile"
     Copy-Item $SettingsFile $backupFile
     # Keep only the 5 most recent backups
-    Get-ChildItem "$BackupDir\settings.json.*.bak" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
+    Get-ChildItem "$BackupDir\settings.json.*.bak" | Where-Object { $_.Name -notlike '*.pre-uninstall.bak' } | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
     try {
         $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
     } catch {
@@ -71,6 +77,7 @@ try {
     Write-Host "Error: settings.snippet.json is not valid JSON." -ForegroundColor Red
     exit 1
 }
+$Matcher = ($snippetConfig.hooks.PreToolUse | Select-Object -First 1).matcher
 $newHooks = $snippetConfig.hooks.PreToolUse
 
 Write-Host "Merging hook configuration..." -ForegroundColor Green
@@ -93,10 +100,16 @@ foreach ($hook in $newHooks) {
     $settings.hooks.PreToolUse += $hook
 }
 
-# Save settings (UTF-8 without BOM)
-$jsonContent = $settings | ConvertTo-Json -Depth 10
+# Save settings atomically (UTF-8 without BOM)
 $encoding = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($SettingsFile, $jsonContent, $encoding)
+$jsonContent = $settings | ConvertTo-Json -Depth 10
+$tempFile = Join-Path $ClaudeDir ("settings.json.{0}.tmp" -f [guid]::NewGuid().ToString("N"))
+try {
+    [System.IO.File]::WriteAllText($tempFile, $jsonContent, $encoding)
+    Move-Item -LiteralPath $tempFile -Destination $SettingsFile -Force
+} finally {
+    if (Test-Path -LiteralPath $tempFile) { Remove-Item -LiteralPath $tempFile -Force }
+}
 
 Write-Host "Hook configuration merged successfully!" -ForegroundColor Green
 Write-Host ""
@@ -112,7 +125,13 @@ if (-not (Test-Path $sessionsFile)) {
         tasks = [pscustomobject]@{}
     }
     $sessionsJson = $sessionsTemplate | ConvertTo-Json -Depth 5
-    [System.IO.File]::WriteAllText($sessionsFile, $sessionsJson, $encoding)
+    $sessionsTemp = Join-Path $ClaudeDir (".sessions.{0}.tmp" -f [guid]::NewGuid().ToString("N"))
+    try {
+        [System.IO.File]::WriteAllText($sessionsTemp, $sessionsJson, $encoding)
+        Move-Item -LiteralPath $sessionsTemp -Destination $sessionsFile -Force
+    } finally {
+        if (Test-Path -LiteralPath $sessionsTemp) { Remove-Item -LiteralPath $sessionsTemp -Force }
+    }
     Write-Host "  Created: $sessionsFile"
 } else {
     Write-Host "  sessions.json already exists, skipping..." -ForegroundColor Yellow

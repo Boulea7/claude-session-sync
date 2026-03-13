@@ -20,7 +20,7 @@ mkdir -p .claude/skills
 cp /path/to/claude-session-sync/skill/session-sync.md .claude/skills/
 ```
 
-> **Note:** Do not use a symlink for `session-sync.md`. The hook checks `.claude/sessions.json` for symlinks and refuses to read symlinked paths as a security measure.
+> **Note:** For simplicity, use `cp` instead of a symlink. The hook's symlink protection applies only to `.claude/` and `.claude/sessions.json`, not to skill files.
 
 ## Usage / 使用
 

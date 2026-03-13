@@ -6,10 +6,10 @@
 set -euo pipefail
 umask 077
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 BACKUP_DIR="$CLAUDE_DIR/backups"
-MATCHER="mcp__codex__codex|mcp__gemini__gemini"
 TMP_FILE=""
 
 # Colors
@@ -37,6 +37,21 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+# Derive matcher from snippet (SSOT)
+if [ ! -f "$SCRIPT_DIR/settings.snippet.json" ]; then
+    echo -e "${RED}Error: settings.snippet.json not found.${NC}"
+    exit 1
+fi
+MATCHER="$(jq -r '.hooks.PreToolUse[0].matcher' "$SCRIPT_DIR/settings.snippet.json")"
+
+# Refuse symlinked paths
+for _path in "$CLAUDE_DIR" "$SETTINGS_FILE" "$BACKUP_DIR"; do
+    if [ -L "$_path" ]; then
+        echo -e "${RED}Error: refusing symlinked path: $_path${NC}"
+        exit 1
+    fi
+done
+
 # Check settings.json
 if [ ! -f "$SETTINGS_FILE" ]; then
     echo -e "${YELLOW}No settings.json found. Nothing to uninstall.${NC}"
@@ -56,7 +71,7 @@ echo -e "${YELLOW}Backing up settings.json to:${NC}"
 echo -e "  $BACKUP_FILE"
 cp "$SETTINGS_FILE" "$BACKUP_FILE"
 # Keep only the 5 most recent backups
-find "$BACKUP_DIR" -name "settings.json.*.bak" | sort -r | tail -n +6 | xargs rm -f
+find "$BACKUP_DIR" -name "settings.json.*.pre-uninstall.bak" | sort -r | tail -n +6 | xargs rm -f
 
 echo -e "${GREEN}Removing hook configuration...${NC}"
 

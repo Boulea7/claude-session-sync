@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -e .claude ] && [ ! -d .claude ]; then echo '{\"_error\":\"Invalid .claude path\"}'; exit 1; fi; if [ -L .claude ] || [ -L .claude/sessions.json ]; then echo '{\"_error\":\"Refusing symlinked sessions.json\"}'; exit 1; fi; [ -f .claude/sessions.json ] || (umask 077 && mkdir -p .claude && echo '{\"_schema_version\":\"1.0\",\"_hint\":\"Track SESSION_IDs here. Do not store secrets or tokens.\",\"tasks\":{}}' > .claude/sessions.json); cat .claude/sessions.json",
+            "command": "if [ -e .claude ] && [ ! -d .claude ]; then echo '{\"_error\":\"Invalid .claude path\"}'; exit 1; fi; if [ -L .claude ] || [ -L .claude/sessions.json ]; then echo '{\"_error\":\"Refusing symlinked sessions.json\"}'; exit 1; fi; if [ ! -f .claude/sessions.json ]; then umask 077 && mkdir -p .claude && tmp=\"$(mktemp .claude/.sessions.XXXXXX)\" && printf '%s\\n' '{\"_schema_version\":\"1.0\",\"_hint\":\"Track SESSION_IDs here. Do not store secrets or tokens.\",\"tasks\":{}}' >\"$tmp\" && mv \"$tmp\" .claude/sessions.json; fi; if command -v jq >/dev/null 2>&1 && ! jq empty .claude/sessions.json >/dev/null 2>&1; then echo '{\"_error\":\"Invalid sessions.json\"}'; exit 1; fi; cat .claude/sessions.json",
             "timeout": 3000
           }
         ]
