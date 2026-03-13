@@ -64,6 +64,17 @@
 
 ## 🚀 快速开始
 
+### ✨ 推荐：让 Claude Code 自动安装
+
+> [!TIP]
+> 把下面这行提示词**直接粘贴给 Claude Code**，由它完成克隆与安装，一步到位。
+
+```text
+帮我安装 claude-session-sync hook，仓库：https://github.com/Boulea7/claude-session-sync
+```
+
+### 手动安装
+
 <details open>
 <summary><b>🍎 macOS / 🐧 Linux</b></summary>
 
