@@ -8,6 +8,7 @@
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai/code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#)
+[![CI](https://github.com/Boulea7/claude-session-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/Boulea7/claude-session-sync/actions/workflows/ci.yml)
 
 [English](./README_EN.md) | 简体中文
 
