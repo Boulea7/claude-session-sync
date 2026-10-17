@@ -44,13 +44,10 @@ if [ ! -f "$SCRIPT_DIR/settings.snippet.json" ]; then
     exit 1
 fi
 
-if ! jq empty "$SCRIPT_DIR/settings.snippet.json" >/dev/null 2>&1; then
+if ! jq -e -s 'length == 1' "$SCRIPT_DIR/settings.snippet.json" >/dev/null 2>&1; then
     echo -e "${RED}Error: settings.snippet.json is not valid JSON.${NC}"
     exit 1
 fi
-
-# Derive matcher from snippet (SSOT)
-MATCHER="$(jq -r '.hooks.PreToolUse[0].matcher' "$SCRIPT_DIR/settings.snippet.json")"
 
 # Refuse symlinked paths
 for _path in "$CLAUDE_DIR" "$SETTINGS_FILE" "$BACKUP_DIR"; do
@@ -82,7 +79,7 @@ else
 fi
 
 # Validate existing settings.json
-if ! jq empty "$SETTINGS_FILE" >/dev/null 2>&1; then
+if ! jq -e -s 'length == 1' "$SETTINGS_FILE" >/dev/null 2>&1; then
     echo -e "${RED}Error: $SETTINGS_FILE is not valid JSON. Fix or restore from backup.${NC}"
     exit 1
 fi
@@ -92,15 +89,34 @@ HOOK_CONFIG="$(cat "$SCRIPT_DIR/settings.snippet.json")"
 
 echo -e "${GREEN}Merging hook configuration...${NC}"
 
-# Check if hook already installed
-if jq -e --arg matcher "$MATCHER" '(.hooks.PreToolUse // []) | any(.matcher == $matcher)' "$SETTINGS_FILE" >/dev/null 2>&1; then
-    echo -e "${YELLOW}Hook already installed. Updating...${NC}"
-fi
-
-# Merge: remove existing hook with same matcher, then add new one
+# Remove complete matching handlers across all matchers, then append the snippet.
 TMP_FILE="$(mktemp "$CLAUDE_DIR/settings.json.XXXXXX.tmp")"
-jq --argjson hook "$HOOK_CONFIG" --arg matcher "$MATCHER" '
-  .hooks.PreToolUse = (((.hooks.PreToolUse // []) | map(select(.matcher != $matcher))) + $hook.hooks.PreToolUse)
+jq --argjson hook "$HOOK_CONFIG" '
+  def hook_groups:
+    if type != "array" then error("PreToolUse must be an array")
+    else map(
+      if type != "object" then error("PreToolUse groups must be objects")
+      elif (.hooks | type) != "array" then error("Group hooks must be an array")
+      elif any(.hooks[]; type != "object") then error("Hook handlers must be objects")
+      else . end
+    ) end;
+  if type != "object" then error("Settings must be an object")
+  elif .hooks != null and (.hooks | type) != "object" then error("Settings hooks must be an object")
+  elif ($hook | type) != "object" then error("Snippet must be an object")
+  elif ($hook.hooks | type) != "object" then error("Snippet hooks must be an object")
+  else . end
+  | ($hook.hooks.PreToolUse | hook_groups) as $new_groups
+  | if ($new_groups | length) == 0 or any($new_groups[]; (.hooks | length) == 0)
+    then error("Snippet must contain hook handlers") else . end
+  | [$new_groups[].hooks[]] as $project_handlers
+  | .hooks.PreToolUse = (
+      ((if .hooks.PreToolUse == null then [] else .hooks.PreToolUse end)
+        | hook_groups
+        | map(
+            .hooks |= map(. as $handler | select($project_handlers | index($handler) | not))
+            | select(.hooks | length > 0)
+          )) + $new_groups
+    )
 ' "$SETTINGS_FILE" > "$TMP_FILE"
 mv "$TMP_FILE" "$SETTINGS_FILE"
 TMP_FILE=""

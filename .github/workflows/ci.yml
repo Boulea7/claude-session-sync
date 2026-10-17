@@ -17,6 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       - name: Validate JSON files
         run: |
           echo "Validating JSON files..."
@@ -45,12 +49,19 @@ jobs:
           echo "Hook command output is valid JSON."
           rm -rf .claude
 
+      - name: Test Bash installer
+        run: python tests/test_install.py -v
+
   validate-powershell:
     name: Validate PowerShell Scripts
     runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
 
       - name: Parse PowerShell scripts
         shell: pwsh
@@ -68,3 +79,10 @@ jobs:
             Write-Host "OK: $file"
           }
           Write-Host "PowerShell syntax validation passed."
+
+      - name: Test PowerShell installer
+        shell: pwsh
+        env:
+          SESSION_SYNC_TEST_POWERSHELL: pwsh
+          PYTHONUTF8: '1'
+        run: python tests/test_install.py -v
