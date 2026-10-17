@@ -141,7 +141,8 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual(self.read_settings(), self.snippet)
 
     def test_rejects_invalid_settings_without_replacing_file(self):
-        invalid_settings = [[], None, "settings", {"hooks": []}, {"hooks": False},
+        invalid_settings = [[], [{}], [42], None, "settings", 42, True, False,
+                            {"hooks": []}, {"hooks": False},
                             {"hooks": {"PreToolUse": {}}},
                             {"hooks": {"PreToolUse": False}},
                             {"hooks": {"PreToolUse": [None]}},
@@ -166,7 +167,8 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual(self.settings_path.read_bytes(), original_bytes)
 
     def test_rejects_invalid_snippet_without_replacing_settings(self):
-        invalid_snippets = [None, [], {}, {"hooks": []}, {"hooks": {"PreToolUse": []}},
+        invalid_snippets = [None, [], [self.snippet], {}, {"hooks": []},
+                            {"hooks": {"PreToolUse": []}},
                             {"hooks": {"PreToolUse": [{"hooks": []}]}},
                             {"hooks": {"PreToolUse": [{"hooks": [None]}]}},
                             {"hooks": {"PreToolUse": [{"hooks": {}}]}}]

@@ -104,7 +104,9 @@ if (Test-Path $SettingsFile) {
     # Keep only the 5 most recent backups
     Get-ChildItem "$BackupDir\settings.json.*.bak" | Where-Object { $_.Name -notlike '*.pre-uninstall.bak' } | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
     try {
-        $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json @jsonReadOptions
+        $settingsJson = Get-Content $SettingsFile -Raw
+        if ($settingsJson -notmatch '^\s*\{') { throw "Settings must be an object." }
+        $settings = $settingsJson | ConvertFrom-Json @jsonReadOptions
     } catch {
         Write-Host "Error: settings.json is not valid JSON. Restore from backup first." -ForegroundColor Red
         exit 1
@@ -121,7 +123,9 @@ if (-not (Test-Path $snippetPath)) {
     exit 1
 }
 try {
-    $snippetConfig = Get-Content $snippetPath -Raw | ConvertFrom-Json @jsonReadOptions
+    $snippetJson = Get-Content $snippetPath -Raw
+    if ($snippetJson -notmatch '^\s*\{') { throw "Snippet must be an object." }
+    $snippetConfig = $snippetJson | ConvertFrom-Json @jsonReadOptions
 } catch {
     Write-Host "Error: settings.snippet.json is not valid JSON." -ForegroundColor Red
     exit 1
@@ -141,7 +145,8 @@ if ($newHooks.Count -eq 0 -or @($newHooks | Where-Object { $_.hooks.Count -eq 0 
 Write-Host "Merging hook configuration..." -ForegroundColor Green
 
 # Initialize hooks structure if needed (using pscustomobject for proper JSON serialization)
-if ($settings -isnot [pscustomobject]) {
+# The accelerator also matches wrapped scalars; require the concrete JSON object type.
+if ($settings -isnot [System.Management.Automation.PSCustomObject]) {
     throw "Settings must be an object."
 }
 if (-not $settings.PSObject.Properties["hooks"] -or $null -eq $settings.hooks) {
