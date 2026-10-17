@@ -4,6 +4,49 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Assert-HookGroups {
+    param($Groups)
+    if ($Groups -isnot [array]) {
+        throw "PreToolUse must be an array."
+    }
+    foreach ($group in $Groups) {
+        if ($group -isnot [pscustomobject] -or
+            -not $group.PSObject.Properties["hooks"] -or
+            $group.hooks -isnot [array]) {
+            throw "PreToolUse groups must be objects with a hooks array."
+        }
+        foreach ($handler in $group.hooks) {
+            if ($handler -isnot [pscustomobject]) {
+                throw "Hook handlers must be objects."
+            }
+        }
+    }
+}
+
+function Test-SessionSyncHandler {
+    param($Handler, $Expected)
+    $properties = @($Handler.PSObject.Properties)
+    $expectedProperties = @($Expected.PSObject.Properties)
+    if ($properties.Count -ne $expectedProperties.Count) { return $false }
+    foreach ($property in $expectedProperties) {
+        $actual = $properties | Where-Object { $_.Name -ceq $property.Name } | Select-Object -First 1
+        if ($null -eq $actual) { return $false }
+        $value = $property.Value
+        if ($null -eq $value) {
+            if ($null -ne $actual.Value) { return $false }
+        } elseif ($value -is [string] -or $value -is [bool] -or
+                  $value -is [int] -or $value -is [long] -or
+                  $value -is [double] -or $value -is [decimal]) {
+            if ($null -eq $actual.Value -or $actual.Value.GetType() -ne $value.GetType() -or
+                $actual.Value -cne $value) { return $false }
+        } else {
+            # The shipped handlers use scalar fields; preserve unsupported values.
+            return $false
+        }
+    }
+    return $true
+}
+
 $ClaudeDir = "$env:USERPROFILE\.claude"
 $SettingsFile = "$ClaudeDir\settings.json"
 $BackupDir = "$ClaudeDir\backups"
@@ -45,6 +88,12 @@ if (-not (Test-Path $ClaudeDir)) {
 
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
 
+# Preserve timestamp strings when the parser supports DateKind.
+$jsonReadOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey("DateKind")) {
+    $jsonReadOptions["DateKind"] = "String"
+}
+
 # Backup and load existing settings.json
 if (Test-Path $SettingsFile) {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -55,7 +104,9 @@ if (Test-Path $SettingsFile) {
     # Keep only the 5 most recent backups
     Get-ChildItem "$BackupDir\settings.json.*.bak" | Where-Object { $_.Name -notlike '*.pre-uninstall.bak' } | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
     try {
-        $settings = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+        $settingsJson = Get-Content $SettingsFile -Raw
+        if ($settingsJson -notmatch '^\s*\{') { throw "Settings must be an object." }
+        $settings = $settingsJson | ConvertFrom-Json @jsonReadOptions
     } catch {
         Write-Host "Error: settings.json is not valid JSON. Restore from backup first." -ForegroundColor Red
         exit 1
@@ -72,37 +123,66 @@ if (-not (Test-Path $snippetPath)) {
     exit 1
 }
 try {
-    $snippetConfig = Get-Content $snippetPath -Raw | ConvertFrom-Json
+    $snippetJson = Get-Content $snippetPath -Raw
+    if ($snippetJson -notmatch '^\s*\{') { throw "Snippet must be an object." }
+    $snippetConfig = $snippetJson | ConvertFrom-Json @jsonReadOptions
 } catch {
     Write-Host "Error: settings.snippet.json is not valid JSON." -ForegroundColor Red
     exit 1
 }
-$Matcher = ($snippetConfig.hooks.PreToolUse | Select-Object -First 1).matcher
+if ($snippetConfig -isnot [pscustomobject] -or
+    -not $snippetConfig.PSObject.Properties["hooks"] -or
+    $snippetConfig.hooks -isnot [pscustomobject] -or
+    -not $snippetConfig.hooks.PSObject.Properties["PreToolUse"]) {
+    throw "Snippet must contain PreToolUse hook groups."
+}
 $newHooks = $snippetConfig.hooks.PreToolUse
+Assert-HookGroups $newHooks
+if ($newHooks.Count -eq 0 -or @($newHooks | Where-Object { $_.hooks.Count -eq 0 }).Count -gt 0) {
+    throw "Snippet must contain hook handlers."
+}
 
 Write-Host "Merging hook configuration..." -ForegroundColor Green
 
 # Initialize hooks structure if needed (using pscustomobject for proper JSON serialization)
-if (-not $settings.PSObject.Properties["hooks"]) {
-    $settings | Add-Member -NotePropertyName "hooks" -NotePropertyValue ([pscustomobject]@{}) -Force
+# The accelerator also matches wrapped scalars; require the concrete JSON object type.
+if ($settings -isnot [System.Management.Automation.PSCustomObject]) {
+    throw "Settings must be an object."
 }
-if (-not $settings.hooks.PSObject.Properties["PreToolUse"]) {
+if (-not $settings.PSObject.Properties["hooks"] -or $null -eq $settings.hooks) {
+    $settings | Add-Member -NotePropertyName "hooks" -NotePropertyValue ([pscustomobject]@{}) -Force
+} elseif ($settings.hooks -isnot [pscustomobject]) {
+    throw "Settings hooks must be an object."
+}
+if (-not $settings.hooks.PSObject.Properties["PreToolUse"] -or $null -eq $settings.hooks.PreToolUse) {
     $settings.hooks | Add-Member -NotePropertyName "PreToolUse" -NotePropertyValue @() -Force
 }
+Assert-HookGroups $settings.hooks.PreToolUse
 
-# Remove existing session-sync hook if present (by matcher)
-$settings.hooks.PreToolUse = @($settings.hooks.PreToolUse | Where-Object {
-    $_.matcher -ne $Matcher
-})
-
-# Add new hooks from snippet
-foreach ($hook in $newHooks) {
-    $settings.hooks.PreToolUse += $hook
-}
+# Remove complete matching handlers across all matchers, keeping nonempty groups.
+$projectHandlers = @($newHooks | ForEach-Object { $_.hooks })
+$remainingGroups = @(
+    foreach ($group in $settings.hooks.PreToolUse) {
+        $group.hooks = @(
+            foreach ($handler in $group.hooks) {
+                $matched = $false
+                foreach ($expected in $projectHandlers) {
+                    if (Test-SessionSyncHandler $handler $expected) {
+                        $matched = $true
+                        break
+                    }
+                }
+                if (-not $matched) { $handler }
+            }
+        )
+        if ($group.hooks.Count -gt 0) { $group }
+    }
+)
+$settings.hooks.PreToolUse = $remainingGroups + @($newHooks)
 
 # Save settings atomically (UTF-8 without BOM)
 $encoding = New-Object System.Text.UTF8Encoding($false)
-$jsonContent = $settings | ConvertTo-Json -Depth 10
+$jsonContent = $settings | ConvertTo-Json -Depth 100 -WarningAction Stop
 $tempFile = Join-Path $ClaudeDir ("settings.json.{0}.tmp" -f [guid]::NewGuid().ToString("N"))
 try {
     [System.IO.File]::WriteAllText($tempFile, $jsonContent, $encoding)
